@@ -1,13 +1,15 @@
 {
   "name": "vxu-smart-server",
-  "version": "2.0.0",
-  "description": "RPG Maker VX Multiplayer Server with Web Dashboard",
+  "version": "3.0.0",
+  "description": "VXU Multiplayer Server — Game Relay + Web Dashboard",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "socket.io": "^4.7.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
