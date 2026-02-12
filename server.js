@@ -349,7 +349,7 @@ function handleApiList(req, res) {
     } else {
         displayIP = getLocalIP();
     }
-    const port = PUBLIC_URL ? WEB_PORT : GAME_PORT;
+    const port = PUBLIC_URL ? 443 : GAME_PORT;
     const mode = PUBLIC_URL ? 'HTTP' : 'TCP';
 
     // Format: NAME|IP_OR_HOST|PORT|CURRENT|MAX|MODE
