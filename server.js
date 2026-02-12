@@ -29,16 +29,16 @@ const crypto = require('crypto');
 const os = require('os');
 
 // ─── CONFIGURATION ──────────────────────────────────────────────────────
-const GAME_PORT   = parseInt(process.env.GAME_PORT) || 7771;
-const WEB_PORT    = parseInt(process.env.PORT) || 3000;
-const PUBLIC_URL  = process.env.PUBLIC_URL || null;  // e.g. "https://my-server.onrender.com"
-const ADMIN_PASS  = process.env.ADMIN_PASS || "admin";
-const DELIM       = '|';
+const GAME_PORT = parseInt(process.env.GAME_PORT) || 7771;
+const WEB_PORT = parseInt(process.env.PORT) || 3000;
+const PUBLIC_URL = process.env.PUBLIC_URL || null;  // e.g. "https://my-server.onrender.com"
+const ADMIN_PASS = process.env.ADMIN_PASS || "admin";
+const DELIM = '|';
 const HTTP_TIMEOUT = 30000; // 30 seconds — drop HTTP clients that stop polling
 
 // ─── STATE ──────────────────────────────────────────────────────────────
 let nextId = 1;  // 0 = server/admin
-const tcpClients  = new Map();  // socket → { id, name, ip, char_name, char_idx, buffer }
+const tcpClients = new Map();  // socket → { id, name, ip, char_name, char_idx, buffer }
 const httpClients = new Map();  // token  → { id, name, ip, char_name, char_idx, lastPoll, queue[] }
 
 let serverConfig = {
@@ -55,7 +55,7 @@ function log(msg) {
 
 // ─── PROTOCOL HELPERS ───────────────────────────────────────────────────
 function encode(...parts) { return parts.join(DELIM) + '\n'; }
-function decode(line)     { return line.replace(/\r?\n$/, '').split(DELIM); }
+function decode(line) { return line.replace(/\r?\n$/, '').split(DELIM); }
 
 function getPlayerCount() {
     let count = 0;
@@ -80,7 +80,7 @@ function broadcast(data, excludeId) {
     for (const [sock, info] of tcpClients) {
         if (info.id === excludeId) continue;
         if (info.id === null) continue;
-        try { sock.write(data); } catch (e) {}
+        try { sock.write(data); } catch (e) { }
     }
     for (const [token, info] of httpClients) {
         if (info.id === excludeId) continue;
@@ -150,7 +150,7 @@ const gameServer = net.createServer((socket) => {
         dashEvent('update_counts', { current: getPlayerCount(), max: serverConfig.maxPlayers });
     });
 
-    socket.on('error', () => {});
+    socket.on('error', () => { });
 });
 
 function handleTcpMessage(socket, info, line) {
@@ -222,8 +222,23 @@ function parseBody(req) {
     });
 }
 
+// Get body from either POST body or GET ?d= query parameter
+function getBody(req) {
+    const urlObj = require('url').parse(req.url, true);
+    if (req.method === 'GET' && urlObj.query.d) {
+        return Promise.resolve(decodeURIComponent(urlObj.query.d));
+    }
+    return parseBody(req);
+}
+
+// Extract the path without query string
+function getPath(url) {
+    const idx = url.indexOf('?');
+    return idx >= 0 ? url.substring(0, idx) : url;
+}
+
 function handleApiJoin(req, res) {
-    parseBody(req).then(body => {
+    getBody(req).then(body => {
         if (!body) { res.writeHead(400); res.end('Bad request'); return; }
 
         if (getPlayerCount() >= serverConfig.maxPlayers) {
@@ -270,7 +285,7 @@ function handleApiJoin(req, res) {
 }
 
 function handleApiSync(req, res) {
-    parseBody(req).then(body => {
+    getBody(req).then(body => {
         if (!body) { res.writeHead(400); res.end('Bad'); return; }
 
         const parts = body.split(DELIM);
@@ -302,7 +317,7 @@ function handleApiSync(req, res) {
 }
 
 function handleApiChat(req, res) {
-    parseBody(req).then(body => {
+    getBody(req).then(body => {
         if (!body) { res.writeHead(400); res.end('Bad'); return; }
         const parts = body.split(DELIM);
         if (parts.length < 2) { res.writeHead(400); res.end('Bad'); return; }
@@ -322,7 +337,7 @@ function handleApiChat(req, res) {
 }
 
 function handleApiLeave(req, res) {
-    parseBody(req).then(body => {
+    getBody(req).then(body => {
         if (!body) { res.writeHead(400); res.end('Bad'); return; }
         const token = body.trim();
         const info = httpClients.get(token);
@@ -377,14 +392,15 @@ setInterval(() => {
 //  WEB SERVER (Dashboard + HTTP API)
 // =========================================================================
 const httpServer = http.createServer((req, res) => {
-    // ─── API Routes ─────────────────────────────────────────────────
-    if (req.method === 'POST' && req.url === '/api/join')  { handleApiJoin(req, res);  return; }
-    if (req.method === 'POST' && req.url === '/api/sync')  { handleApiSync(req, res);  return; }
-    if (req.method === 'POST' && req.url === '/api/chat')  { handleApiChat(req, res);  return; }
-    if (req.method === 'POST' && req.url === '/api/leave') { handleApiLeave(req, res); return; }
-    if (req.method === 'GET'  && req.url === '/api/list')  { handleApiList(req, res);  return; }
+    // ─── API Routes (accept both GET and POST for HTTPS compatibility) ──
+    const path = getPath(req.url);
+    if (path === '/api/join') { handleApiJoin(req, res); return; }
+    if (path === '/api/sync') { handleApiSync(req, res); return; }
+    if (path === '/api/chat') { handleApiChat(req, res); return; }
+    if (path === '/api/leave') { handleApiLeave(req, res); return; }
+    if (path === '/api/list') { handleApiList(req, res); return; }
     // Also support /list for backwards compat
-    if (req.method === 'GET'  && req.url === '/list')      { handleApiList(req, res);  return; }
+    if (path === '/list') { handleApiList(req, res); return; }
 
     // ─── CORS preflight ─────────────────────────────────────────────
     if (req.method === 'OPTIONS') {
